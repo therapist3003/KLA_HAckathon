@@ -70,7 +70,7 @@ res[(0,0)] = lowerLeftCorner(ref_die)
 ref_die_obj = Die((0,0), lowerLeftCorner(ref_die))
 visited = []
 
-# Iterative DFS
+# DFS
 stack = []
 visited.append((0,0))
 stack.append(ref_die_obj)
