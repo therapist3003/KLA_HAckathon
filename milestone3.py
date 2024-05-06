@@ -1,211 +1,175 @@
 import math
+import numpy as np
+import matplotlib.pyplot as plt
 
-file = open('Testcase3.txt', 'r')
+class Die:
+    def __init__(self, index, lowerLeftCoord):
+        self.index = index
+        self.llc = lowerLeftCoord
+test_case_no = input('Enter testcase number: ')
+
+# Takes two floating point coords and returns whether they are close or not
+def is_close_coord(coord1, coord2):
+    if round(coord1[0], 4) == round(coord2[0], 4) and round(coord1[1], 4) == round(coord2[1], 4):
+        return True
+    return False
+
+file = open('Testcase' + test_case_no+'.txt', 'r')
 lines = file.readlines()
 
 wafer_dia = float(lines[0].split(':')[1])
 radius = wafer_dia/2
 
-die_dim= lines[1].split(':')[1]
+die_dim = lines[1].split(':')[1]
 die_width = float(die_dim.split('x')[0])
 die_height = float(die_dim.split('x')[1])
 
-die_shift_temp = (lines[2].split(':')[1])
-die_shift_vector = (float(die_shift_temp.split(',')[0][1:]), float(die_shift_temp.split(',')[1][:-2]))
-# print(die_shift_vector)
+die_shift_temp = lines[2].split(':')[1].strip()
 
-ref_die_temp = (lines[3].split(':')[1])
-ref_die = (float(ref_die_temp.split(',')[0][1:]), float(ref_die_temp.split(',')[1][:-2]))
-# print(ref_die)
+die_shift_vector = (float(die_shift_temp.split(',')[0][1:]), float(die_shift_temp.split(',')[1][:-1]))
 
-die_stret_dim = lines[4].split(':')[1]
-die_street_width = float(die_stret_dim.split(',')[0][1:])
-die_street_height = float(die_stret_dim.split(',')[1][:-2])
-# print('Die st width: ', die_street_width)
-# print('Die st height: ', die_street_height)
+ref_die_temp = lines[3].split(':')[1].strip()
+ref_die = (float(ref_die_temp.split(',')[0][1:]), float(ref_die_temp.split(',')[1][:-1]))
 
-ret_stret_dim = lines[5].split(':')[1]
-ret_street_width = float(ret_stret_dim.split(',')[0][1:])
-ret_street_height = float(ret_stret_dim.split(',')[1][:-2])
-# print('Ret st width: ', ret_street_width)
-# print('Ret st height: ', ret_street_height)
+die_street_temp = lines[4].split(':')[1].strip()
+die_st_width = float(die_street_temp.split(',')[0][1:])
+die_st_height = float(die_street_temp.split(',')[1][:-1])
 
-reticle_size = lines[6].split(':')[1]
-reticle_rows = int(reticle_size.split('x')[0])
-reticle_cols = int(reticle_size.split('x')[1])
+ret_street_temp = lines[5].split(':')[1].strip()
+ret_st_width = float(ret_street_temp.split(',')[0][1:])
+ret_st_height = float(ret_street_temp.split(',')[1][:-1])
 
-# print('Rows: ', reticle_rows, ' Cols: ', reticle_cols)
+reticle_temp = lines[6].split(':')[1].strip()
+reticle_rows = int(reticle_temp.split('x')[0])
+reticle_cols = int(reticle_temp.split('x')[1])
 
+# Finds euclidean distance between two 2d coordinates
 def distance(p0, p1):
     return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
+# Checks whether an input coordinate is inside the wafer 
 def pointInCircle(point, rad = radius):
-    if distance((0,0), point) <= rad:
+    if distance((0,0), point) < rad:
         return True
     return False
 
-def isDieInCircle(die_centre):
-    die_top_left = (die_centre[0]-(die_width/2), die_centre[1]+(die_height/2))
-    die_top_right = (die_centre[0]+(die_width/2), die_centre[1]+(die_height/2))
-    die_bottom_left = (die_centre[0]-(die_width/2), die_centre[1]-(die_height/2))
-    die_bottom_right = (die_centre[0]+(die_width/2), die_centre[1]-(die_height/2))
+def getMidPoint(point1, point2):
+    return ((point1[0] + point2[0])/2, (point1[1] + point2[1])/2)
+            
+# Checks whether the die (partial/complete) is inside the wafer
+# IDEA: Even if one corner of the die is inside the wafer or one midpoint, then the die is inside the wafer 
+def isDieInCircle(die_llc):
+    # if not pointInCircle(die_centre):
+    #     print('Point whose center not inside wafer: ', die_centre)
+    die_top_left = (die_llc[0], die_llc[1]+die_height)
+    die_top_right = (die_llc[0] + die_width, die_llc[1]+die_height)
+    die_bottom_right = (die_llc[0]+die_width, die_llc[1])
 
-    if pointInCircle(die_top_left) or pointInCircle(die_top_right) or pointInCircle(die_bottom_left) or pointInCircle(die_bottom_right):
+    die_top_mid = getMidPoint(die_top_left, die_top_right)
+    die_right_mid = getMidPoint(die_top_right, die_bottom_right)
+    die_bottom_mid = getMidPoint(die_llc, die_bottom_right)
+    die_left_mid = getMidPoint(die_top_left, die_llc)
+
+    if pointInCircle(die_top_left) or pointInCircle(die_top_right) or pointInCircle(die_llc) or pointInCircle(die_bottom_right) or pointInCircle(die_top_mid) or pointInCircle(die_right_mid) or pointInCircle(die_bottom_mid) or pointInCircle(die_left_mid):
         return True
-    return False
+    
+def isReticleInCircle(reticle_llc):
+    res = False
 
+    for i in range(reticle_cols): # x should be incremented reticle_col times
+        for j in range(reticle_rows): # y should be incremented reticle_row times
+            if isDieInCircle((reticle_llc[0] + i*(die_width+die_st_width), reticle_llc[1] + j*(die_height+die_st_height))):
+                res = True
+                break
+        if res:
+            break
+    return res
+
+# Given the centre coordinate of the die w.r.t the wafer, it returns the lower left coordinate (w.r.t wafer) of the die
 def lowerLeftCorner(die_centre):
-    return (float(die_centre[0])-(die_width/2), float(die_centre[1])-(die_height/2))
+    return (round(float(die_centre[0])-(die_width/2),4), round(float(die_centre[1])-(die_height/2),4))
+
+
+# Trying manual plotting
+'''fig,ax = plt.subplots()
+circle = plt.Circle((0,0), radius=wafer_dia/2, color='r', fill=False)
+ax.add_artist(circle)
+ax.set_aspect('equal')
+ax.set_xlim(-wafer_dia/2 - 10, wafer_dia/2 + 10)
+ax.set_ylim(-wafer_dia/2 - 10, wafer_dia/2 + 10)'''
+
+# Dictionary to hold final result
+# Keys: Die indices, Values: LLC values
 
 res = {}
-res[(0,0)] = lowerLeftCorner(ref_die)
 
-row_index, col_index = 0,0
-ret_row_index, ret_col_index = 0,0
-# 1st quadrant
-#row loop
-while True:
-    #col loop
-    col_index = 0
-    ret_col_index = 0
-    while True:
-        if row_index == 0 and col_index==0:
-            col_index += 1
-            continue
-        
-        if col_index%reticle_rows==0:
-            ret_col_index += 1
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height+die_street_height) + ret_col_index*ret_street_height]
-        else:
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
-        if isDieInCircle(curr_die):
-            res[(row_index,col_index)] = lowerLeftCorner(curr_die)
-            col_index += 1
-        else:
-            break
-    row_index += 1
-    col_index = 0
-    ret_col_index = 0
+# DFS
+visited = []
+stack = []
+ref_die_llc = lowerLeftCorner(ref_die)
 
-    if row_index%reticle_cols==0:
-        ret_row_index += 1
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height + die_street_height)]
-    else:
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
-    if not isDieInCircle(curr_die):
-        break
+# Manual plotting reference die
+# ax.text(ref_die_llc[0], ref_die_llc[1], 'Ref Die', fontsize=10, ha='center', va='center')
+'''die_coord = [ref_die_llc[0], ref_die_llc[1]]
+rect = plt.Rectangle(die_coord, die_width, die_height, color='g', fill=False, linewidth=1)
+ax.add_patch(rect)
+# plt.show()
+plt.savefig('curr.png')'''
 
-row_index, col_index = 0,0
+# Initially indexing dies from the die shift vector. Die at die shift vector is (0,0)
+die_at_die_shift = Die((0,0), die_shift_vector)
+stack.append(die_at_die_shift)
 
-ret_row_index, ret_col_index = 0,0
-#2nd quadrant
-while True:
-    #col loop
-    col_index = 0
-    ret_col_index = 0
-    while True:
-        if row_index == 0 and col_index==0:
-            col_index += 1
-            continue
+# Modelling: Each lower left corner die in the reticle is made as the representative of the reticle
+while stack:
+    '''for key, val in res.items():
+        #ax.text(val[0], val[1], str(key), fontsize=6, ha='center', va='center')
+        die_rect_coord = [val[0], val[1]]
 
-        if col_index%reticle_rows==0:
-            ret_col_index -= 1
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height+die_street_height) + ret_col_index*ret_street_height]
-        else:
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
-
-        if isDieInCircle(curr_die):
-            res[(row_index,col_index)] = lowerLeftCorner(curr_die)
-            col_index += 1
-        else:
-            break
-    row_index -= 1
-    col_index = 0
-    ret_col_index = 0
-
-    if row_index%reticle_cols==0:
-        ret_row_index += 1
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height + die_street_height)]
-    else:
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
-    if not isDieInCircle(curr_die):
-        break
-
-row_index, col_index = 0,0
-ret_row_index, ret_col_index = 0,0
-#3rd quadrant
-while True:
-#col loop
-    col_index = 0
-    ret_col_index = 0
-    while True:
-        if row_index == 0 and col_index==0:
-            col_index -= 1
-            continue
-
-        if col_index%reticle_rows==0:
-            ret_row_index -=1
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height+die_street_height) + ret_col_index*ret_street_height]
-        else:
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
-
-        if isDieInCircle(curr_die):
-            res[(row_index,col_index)] = lowerLeftCorner(curr_die)
-            col_index -= 1
-        else:
-            break
-    row_index -= 1
-    col_index = 0
-    ret_col_index = 0
-
-    if row_index%reticle_cols==0:
-        ret_row_index-=1
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height + die_street_height)]
-    else:
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
-
-    if not isDieInCircle(curr_die):
-        break
+        rect = plt.Rectangle(die_rect_coord, die_width, die_height, fill=False, edgecolor='black', linewidth=1)
+        ax.add_patch(rect)
+        plt.savefig('curr.png')
+    res = {}
+    # plt.show()'''
     
-row_index, col_index = 0,0
-ret_row_index, ret_col_index = 0,0
-#4th quadrant
-while True:
-#col loop
-    col_index = 0
-    ret_col_index = 0
-    while True:
-        if row_index == 0 and col_index==0:
-            col_index -= 1
-            continue
+    curr_die = stack.pop()
 
-        if col_index%reticle_rows==0:
-            ret_col_index +=1
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height+die_street_height) + ret_col_index*ret_street_height]
-        else:
-            curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
+    if curr_die.index in visited: # Already visisted reticle case
+        continue
+    visited.append(curr_die.index)
 
-        if isDieInCircle(curr_die):
-            res[(row_index,col_index)] = lowerLeftCorner(curr_die)
-            col_index -= 1
-        else:
-            break
-    row_index += 1
-    col_index = 0
-    ret_col_index = 0
+    # Checking for all dies in the current reticle
+    if isDieInCircle(curr_die.llc) or isReticleInCircle(curr_die.llc):
+        if curr_die.index not in res:
+            for i in range(reticle_cols):
+                for j in range(reticle_rows):
+                    # Extracting die llc for each die within a reticle
+                    die_llc = (curr_die.llc[0] + i*(die_width + die_st_width), curr_die.llc[1] + j*(die_height + die_st_height))
 
-    if row_index%reticle_cols==0:
-        ret_row_index += 1
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width) + ret_row_index*ret_street_width, ref_die[1] + col_index*(die_height + die_street_height)]
-    else:
-        curr_die = [ref_die[0] + row_index*(die_width+die_street_width), ref_die[1] + col_index*(die_height + die_street_height)]
+                    # Checking whether reference die is reached, to store reference die index with die at die_shift_vector as (0,0)
+                    if is_close_coord(die_llc, ref_die_llc):
+                        index_shift = (curr_die.index[0]+i, curr_die.index[1]+j)
 
-    if not isDieInCircle(curr_die):
-        break
+                    if isDieInCircle((curr_die.llc[0]+i*(die_width+die_st_width), curr_die.llc[1]+j*(die_height+die_st_height))):
+                        res[(curr_die.index[0]+i, curr_die.index[1]+j)] = die_llc
+                    
+            up = Die((curr_die.index[0], curr_die.index[1]+reticle_rows), (curr_die.llc[0], curr_die.llc[1] + reticle_rows*(die_height+die_st_height) + ret_st_height))
+            down = Die((curr_die.index[0], curr_die.index[1]-reticle_rows), (curr_die.llc[0], curr_die.llc[1] - reticle_rows*(die_height+die_st_height) - ret_st_height))
+            right = Die((curr_die.index[0]+reticle_cols, curr_die.index[1]), (curr_die.llc[0] + reticle_cols*(die_width+die_st_width) + ret_st_width, curr_die.llc[1]))
+            left = Die((curr_die.index[0]-reticle_cols, curr_die.index[1]), (curr_die.llc[0] - reticle_cols*(die_width+die_st_width) - ret_st_width, curr_die.llc[1]))
 
-file_path = 'out3.txt'
+            stack.append(up)
+            stack.append(down)
+            stack.append(right)
+            stack.append(left)
 
-with open(file_path, 'w') as file:
-    for key, value in res.items():
-        value = (value[0] + die_shift_vector[0], value[1]+die_shift_vector[1])
-        file.write(f'{str(key)}: {str(value)}\n')
+shifted_res = {}
+# Shifting the grid
+for index in res:
+    shifted_res[(index[0]-index_shift[0], index[1]-index_shift[1])] = res[index]
+
+file_path = 'out'+test_case_no+'.txt'
+file = open(file_path, 'w')
+
+for key, value in shifted_res.items():
+    file.write(f'{str(key)}: {str(value)}\n')
